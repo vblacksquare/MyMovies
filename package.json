@@ -22,7 +22,8 @@
       "main.ts",
       "package.json",
       "backend/**/*",
-      "build/*"
+      "build/*",
+      "public/*"
     ],
     "asarUnpack": [
       "backend/**"
