@@ -1,0 +1,13 @@
+django
+django-rest-framework
+pydantic
+pydantic-settings
+djangorestframework-simplejwt
+django-cors-headers
+m3u8
+requests
+aiohttp
+bs4
+playwright
+seleniumbase
+backports.zstd
