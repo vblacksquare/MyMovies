@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import plyrSvg from '/plyr.svg?url'
+
 import type { Movie, MovieEpisode } from '@/api/movies';
 import type { MovieWatch } from '@/composables/watch';
 
@@ -175,7 +177,7 @@ const loadSource = (url: string) => {
 onMounted(() => {
   if (videoRef.value) {
     plyrInstance.value = new Plyr(videoRef.value, {
-      iconUrl: '/plyr.svg',
+      iconUrl: plyrSvg,
       controls: [
         'play-large', 'play', 'progress', 'current-time',
         'mute', 'volume', 'settings', 'fullscreen'
