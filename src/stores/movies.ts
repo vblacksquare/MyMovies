@@ -16,17 +16,21 @@ export const useWatchStore = defineStore('watch', {
     addOrUpdateMovie(movie_watch: MovieWatch) {
       const movieId = movie_watch.movie.id;
 
-      let old_movie_watch = this.movies.find((el) => el.movie.id == movieId)
-      if (old_movie_watch){
-        movie_watch = old_movie_watch;
+      const index = this.movies.findIndex(el => el.movie.id === movieId);
+
+      if (index !== -1) {
+        const existing = this.movies.splice(index, 1)[0];
+        this.movies.unshift(existing);
+      } else {
+        this.movies.unshift(movie_watch);
       }
 
-      const filtered = this.movies.filter(
-        (el) => el.movie.id !== movieId
-      );
-      const updated = [movie_watch, ...filtered];
+      this.movies = Array.from(new Map(this.movies.map(el => [el.movie.id, el])).values());
 
-      this.movies = updated.slice(0, 5);
+      if (this.movies.length > 5) {
+        this.movies = this.movies.slice(0, 5);
+      }
+
       return this.movies;
     }
   },
