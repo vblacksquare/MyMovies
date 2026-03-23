@@ -15,7 +15,6 @@ export const useWatchStore = defineStore('watch', {
   actions: {
     addOrUpdateMovie(movie_watch: MovieWatch) {
       const movieId = movie_watch.movie.id;
-
       const index = this.movies.findIndex(el => el.movie.id === movieId);
 
       if (index !== -1) {
@@ -32,6 +31,9 @@ export const useWatchStore = defineStore('watch', {
       }
 
       return this.movies;
+    },
+    removeMovie(movieId: number) {
+      this.movies = this.movies.filter((el) => el.movie.id !== movieId);
     }
   },
   persist: true

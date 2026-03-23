@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { SidebarProps } from "@/components/ui/sidebar"
-import { GalleryVerticalEnd, HomeIcon, FilmIcon, ChevronRight } from "lucide-vue-next"
+
+import { GalleryVerticalEnd, HomeIcon, FilmIcon, ChevronRight, TrashIcon } from "lucide-vue-next"
 import {
   Sidebar,
   SidebarContent,
@@ -13,6 +14,12 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem
+} from "@/components/ui/context-menu"
 import {
   Collapsible,
   CollapsibleContent,
@@ -115,36 +122,51 @@ const formatTime = (totalSeconds: number | undefined): string => {
               </CollapsibleTrigger>
               <CollapsibleContent class="pr-1">
                 <SidebarMenuSub class="w-full max-h-[70vh] overflow-y-auto hide-scrollbar">
-                  <SidebarMenuSubItem v-for="subItem in watch_data.items" :key="subItem.title">
-                    <SidebarMenuSubButton 
-                        class="cursor-pointer w-full h-auto py-2 px-2 flex items-center min-w-0"
-                        @click="openMovie(subItem.movie)"
-                        :is-active="subItem.url == route.fullPath"
-                      >
-                        <div class="flex gap-2 w-full min-w-0 items-start h-full">
-                          <img 
-                            v-if="subItem.image" 
-                            :src="subItem.image" 
-                            class="w-10 h-14 shrink-0 rounded object-cover"
-                          />
-                          
-                          <div class="flex flex-col h-14 justify-between flex-1 min-w-0">
-                            <p class="text-[11px] leading-tight font-medium !whitespace-normal line-clamp-2 break-words text-left">
-                              {{ subItem.title }}
-                            </p>
+                  <SidebarMenuSubItem
+                    v-for="subItem in watch_data.items"
+                    :key="subItem.title"
+                  >
+                    <ContextMenu>
+                      
+                      <ContextMenuTrigger as-child>
+                        <SidebarMenuSubButton 
+                          class="cursor-pointer w-full h-auto py-2 px-2 flex items-center min-w-0"
+                          @click="openMovie(subItem.movie)"
+                          :is-active="subItem.url == route.fullPath"
+                        >
+                          <div class="flex gap-2 w-full min-w-0 items-start h-full">
+                            <img 
+                              v-if="subItem.image" 
+                              :src="subItem.image" 
+                              class="w-10 h-14 shrink-0 rounded object-cover"
+                            />
                             
-                            <p class="text-[10px] text-muted-foreground opacity-70">
-                              s: {{ subItem.season }} e: {{ subItem.episode }} {{ formatTime(subItem.time) }}
-                            </p>
+                            <div class="flex flex-col h-14 justify-between flex-1 min-w-0">
+                              <p class="text-[11px] leading-tight font-medium line-clamp-2 break-words text-left">
+                                {{ subItem.title }}
+                              </p>
+                              
+                              <p class="text-[10px] text-muted-foreground opacity-70">
+                                s: {{ subItem.season }} e: {{ subItem.episode }} {{ formatTime(subItem.time) }}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      </SidebarMenuSubButton>
+                        </SidebarMenuSubButton>
+                      </ContextMenuTrigger>
+
+                      <ContextMenuContent>
+                        <ContextMenuItem @click="watchStore.removeMovie(subItem.movie.id)">
+                          <TrashIcon />
+                          Remove
+                        </ContextMenuItem>
+                      </ContextMenuContent>
+
+                    </ContextMenu>
                   </SidebarMenuSubItem>
                 </SidebarMenuSub>
               </CollapsibleContent>
             </SidebarMenuItem>
           </Collapsible>
-
         </SidebarMenu>
       </SidebarGroup>
     </SidebarContent>
