@@ -38,8 +38,6 @@ onMounted(async () => {
 
   movies.value = {};
 
-  await fetchSources();
-  await searchMovies(query.value, sources.value);
 })
 
 </script>

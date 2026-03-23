@@ -55,7 +55,7 @@ watchDebounced(
 
     <div 
       v-if="isFocused && searchStore.query" 
-      class="absolute left-10 top-14 left-0 w-[calc(100vw-240px)] bg-primary-foreground border rounded shadow-2xl z-50 max-h-[70vh] overflow-y-auto"
+      class="absolute top-14 right-2 w-[calc(100vw-270px)] bg-primary-foreground border rounded shadow-2xl z-50 max-h-[70vh] overflow-y-auto hide-scrollbar"
     >
     
       <div class="p-2 space-y-1">

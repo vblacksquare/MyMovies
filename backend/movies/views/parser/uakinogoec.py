@@ -81,7 +81,7 @@ class UakinogoecParser(Parser):
     async def _fill(self, movie: Movie) -> tuple[Movie, list[MovieEpisode]]:
         async def do(browser: Browser):
             data = {
-                "playlist": None
+                "playlist": []
             }
 
             def catch_socket(msg):
@@ -132,52 +132,12 @@ class UakinogoecParser(Parser):
                     .map(b => `"${b.brand}";v="${b.version}"`)
                     .join(', ');
             }""")
+            print("QWE", data["playlist"])
 
-            if "s01" not in data["playlist"]:
-                for translation_obj in data["playlist"]:
-                    translation_id = translation_obj["id"]
+            if len(data["playlist"]) == 0:
+                pass
 
-                    if "img" in translation_obj["title"]:
-                        translation_obj["title"] = translation_obj["title"].split('>')[-1]
-
-                    translation = Translation(
-                        external_id='-'.join([self.source.value, str(translation_obj["voice_id"])]),
-                        title=translation_obj["title"],
-                        meta={},
-                    )
-
-                    episode = MovieEpisode(
-                        external_id='-'.join([
-                            translation.external_id,
-                            translation_id
-                        ]),
-                        movie=movie,
-                        translation=translation,
-                        season=1,
-                        episode=1,
-                        meta={
-                            **translation_obj,
-                            "stream_headers": {
-                                "Accept": "*/*",
-                                "Accept-Encoding": "gzip, deflate, br, zstd",
-                                "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
-                                "Cache-Control": "no-cache",
-                                "Pragma": "no-cache",
-                                "Priority": "u=1, i",
-                                "Sec-Ch-Ua": sec_ch_ua,
-                                "Sec-Ch-Ua-Mobile": "?0",
-                                "Sec-Ch-Ua-Platform": '"macOS"',
-                                "Sec-Fetch-Dest": "empty",
-                                "Sec-Fetch-Mode": "cors",
-                                "Sec-Fetch-Site": "none",
-                                "Sec-Fetch-Storage-Access": "active",
-                                "User-Agent": ua
-                            }
-                        }
-                    )
-                    episodes.append(episode)
-
-            else:
+            elif data["playlist"][0].get("id", "").startswith("s"):
                 for season_obj in data["playlist"]:
                     season_i = int(season_obj["id"].split("s")[-1])
 
@@ -227,7 +187,52 @@ class UakinogoecParser(Parser):
                             )
                             episodes.append(episode)
 
+            else:
+                for translation_obj in data["playlist"]:
+                    translation_id = translation_obj["id"]
+
+                    if "img" in translation_obj["title"]:
+                        translation_obj["title"] = translation_obj["title"].split('>')[-1]
+
+                    translation = Translation(
+                        external_id='-'.join([self.source.value, str(translation_obj["voice_id"])]),
+                        title=translation_obj["title"],
+                        meta={},
+                    )
+
+                    episode = MovieEpisode(
+                        external_id='-'.join([
+                            translation.external_id,
+                            translation_id
+                        ]),
+                        movie=movie,
+                        translation=translation,
+                        season=1,
+                        episode=1,
+                        meta={
+                            **translation_obj,
+                            "stream_headers": {
+                                "Accept": "*/*",
+                                "Accept-Encoding": "gzip, deflate, br, zstd",
+                                "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+                                "Cache-Control": "no-cache",
+                                "Pragma": "no-cache",
+                                "Priority": "u=1, i",
+                                "Sec-Ch-Ua": sec_ch_ua,
+                                "Sec-Ch-Ua-Mobile": "?0",
+                                "Sec-Ch-Ua-Platform": '"macOS"',
+                                "Sec-Fetch-Dest": "empty",
+                                "Sec-Fetch-Mode": "cors",
+                                "Sec-Fetch-Site": "none",
+                                "Sec-Fetch-Storage-Access": "active",
+                                "User-Agent": ua
+                            }
+                        }
+                    )
+                    episodes.append(episode)
+
         episodes = []
+
         await browser_ins.execute(do)
 
         return movie, episodes

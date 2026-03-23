@@ -33,14 +33,14 @@ class Browser:
                     browser = await p.chromium.connect_over_cdp(browser_session.url)
 
                     self.context = browser.contexts[0]
-                    self.page = self.context.pages[0] if self.context.pages else await self.context.new_page()
+                    self.page = self.context.pages[0]
 
                     result = await func(self)
 
                     await browser.close()
 
                 except Exception as err:
-                    logger.error(f"CDP Execution Error: {err}")
+                    raise err
 
             logger.info("Task finished")
             return result

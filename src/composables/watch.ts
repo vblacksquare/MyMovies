@@ -1,5 +1,6 @@
 import { useRouter } from "vue-router";
 import { useWatchStore } from "@/stores/movies";
+import { useMoviesApi } from "@/composables/movies";
 import type { Movie } from "@/api/movies";
 
 export interface MovieWatch {
