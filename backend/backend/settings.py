@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
+import platform
 from config import get_config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -91,10 +93,25 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+def get_database_path():
+    app_name = "MyMovies"
+    system = platform.system()
+
+    if system == "Windows":
+        base_path = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming")) / app_name / "db.sqlite3"
+
+    elif system == "Darwin":
+        base_path = Path.home() / "Library" / "Application Support" / app_name / "db.sqlite3"
+
+    else:
+        base_path = Path.home() / "Library" / "Application Support" / app_name / "db.sqlite3"
+
+    return base_path
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': get_database_path()
     }
 }
 

@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+
+let djangoMigrateProcess: ChildProcessWithoutNullStreams | null = null;
 let djangoServerProcess: ChildProcessWithoutNullStreams | null = null;
 let djangoBrowserProcess: ChildProcessWithoutNullStreams | null = null;
 
@@ -86,6 +88,7 @@ app.whenReady().then(async () => {
   try {
     console.log('Starting Django Server...');
     
+    djangoMigrateProcess = startDjangoCommand(['manage.py', 'migrate'], 'Django-Migrate');
     djangoServerProcess = startDjangoCommand(['manage.py', 'runserver', '--noreload'], 'Django-Server');
     djangoBrowserProcess = startDjangoCommand(['manage.py', 'run_browser'], 'Django-Browser');
     await waitForDjangoPort("http://127.0.0.1:8000")
