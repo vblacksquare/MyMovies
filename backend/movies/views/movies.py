@@ -133,7 +133,6 @@ class MovieEpisodeStreamView(APIView):
 
     def _process_manifest(self, request, stream_url, headers, pk):
         try:
-            print(stream_url)
             response = requests.get(stream_url, headers=headers, timeout=10)
             playlist = m3u8.loads(response.text, uri=stream_url)
 

@@ -91,9 +91,13 @@ class Command(BaseCommand):
                     browser_executable_path=get_executable_path(user_data_dir),
                     user_data_dir=user_data_dir,
                     incognito=False,
-                    headless=False,
+                    headless=True,
                     keep_user_data=True,
-                    use_temp_dir=False
+                    use_temp_dir=False,
+                    args=[
+                        "--no-first-run",
+                        "--no-default-browser-check"
+                    ]
                 )
 
                 break

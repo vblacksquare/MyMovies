@@ -16,6 +16,8 @@ package-lock.json
 # C extensions
 *.so
 
+.sqlite3
+
 # Distribution / packaging
 backend/bin/
 .Python

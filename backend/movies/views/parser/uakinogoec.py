@@ -81,7 +81,7 @@ class UakinogoecParser(Parser):
     async def _fill(self, movie: Movie) -> tuple[Movie, list[MovieEpisode]]:
         async def do(browser: Browser):
             data = {
-                "playlist": []
+                "playlist": None
             }
 
             def catch_socket(msg):
@@ -132,7 +132,6 @@ class UakinogoecParser(Parser):
                     .map(b => `"${b.brand}";v="${b.version}"`)
                     .join(', ');
             }""")
-            print("QWE", data["playlist"])
 
             if len(data["playlist"]) == 0:
                 pass
@@ -233,7 +232,11 @@ class UakinogoecParser(Parser):
 
         episodes = []
 
-        await browser_ins.execute(do)
+        try:
+            await asyncio.wait_for(browser_ins.execute(do), timeout=5)
+
+        except Exception as err:
+            logger.exception(err)
 
         return movie, episodes
 
