@@ -21,8 +21,8 @@ export function useWatch() {
     let movie_watch: MovieWatch = {
       movie: movie,
       url: `/watch?movie_id=${movie.id}`,
-      title: movie.title,
-      image: movie.poster,
+      title: movie.fill_title || movie.title,
+      image: movie.fill_poster || movie.poster,
       season: 1,
       episode: 1,
       translation: null,

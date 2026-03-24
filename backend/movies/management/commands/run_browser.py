@@ -5,6 +5,7 @@ import os
 import platform
 import subprocess
 import logging
+from playwright.async_api import async_playwright
 from pathlib import Path
 from asgiref.sync import sync_to_async
 from django.core.management.base import BaseCommand
@@ -21,6 +22,7 @@ logging.basicConfig(
 
 
 system = platform.system()
+HEADLESS = True
 
 
 def get_user_data_dir():
@@ -91,7 +93,7 @@ class Command(BaseCommand):
                     browser_executable_path=get_executable_path(user_data_dir),
                     user_data_dir=user_data_dir,
                     incognito=False,
-                    headless=True,
+                    headless=False,
                     keep_user_data=True,
                     use_temp_dir=False,
                     args=[
@@ -100,14 +102,33 @@ class Command(BaseCommand):
                     ]
                 )
 
-                break
+                async with async_playwright() as p:
+                    browser = await p.chromium.connect_over_cdp(driver.get_endpoint_url())
+
+                    session = BrowserSession(url=driver.get_endpoint_url())
+                    await sync_to_async(session.save)()
+
+                    context = browser.contexts[0]
+                    page = context.pages[0]
+
+                    session = await context.new_cdp_session(page)
+                    window = await session.send("Browser.getWindowForTarget")
+
+                    while True:
+                        bounds = await session.send("Browser.getWindowBounds", {
+                            "windowId": window["windowId"]
+                        })
+
+                        if bounds["bounds"]["windowState"] == "minimized" or not HEADLESS:
+                            await asyncio.sleep(0.1)
+                            continue
+
+                        await session.send("Browser.setWindowBounds", {
+                            "windowId": window["windowId"],
+                            "bounds": {
+                                "windowState": "minimized"
+                            }
+                        })
 
             except Exception as err:
                 self.stdout.write(self.style.ERROR(str(err)))
-
-        browser = BrowserSession(url=driver.get_endpoint_url())
-        await sync_to_async(browser.save)()
-
-        while True:
-            self.stdout.write(self.style.SUCCESS(f'Browser working on {driver.get_endpoint_url()}'))
-            await asyncio.sleep(1)

@@ -17,9 +17,9 @@ class UakinogoecParser(Parser):
     login_hash = None
 
     async def auth(self) -> tuple[aiohttp.ClientSession, dict]:
-        session = aiohttp.ClientSession()
+        self.session = aiohttp.ClientSession()
 
-        async with session.get(
+        async with self.session.get(
             url="https://uakinogo.ec/",
             headers={
                 "user-agent": self.user_agent,
@@ -28,7 +28,7 @@ class UakinogoecParser(Parser):
         ) as resp:
             self.logger.info(f"{self.__class__.__name__}:auth - {resp}")
 
-        return session, {}
+        return self.session, {}
 
     async def _search(self, query: str) -> list[Movie]:
         async with self.session.get(
@@ -104,9 +104,9 @@ class UakinogoecParser(Parser):
 
             browser.context.on("console", catch_socket)
             if browser.page.url == movie.url:
-                await browser.page.reload()
+                await browser.page.reload(wait_until="domcontentloaded")
             else:
-                await browser.page.goto(movie.url)
+                await browser.page.goto(movie.url, wait_until="domcontentloaded")
 
             title_el = await browser.page.query_selector("div.fullstory__title h1")
             description_el = await browser.page.query_selector("div.description__block")

@@ -20,9 +20,9 @@ class YummyanimetvParser(Parser):
     login_hash = None
 
     async def auth(self) -> tuple[aiohttp.ClientSession, dict]:
-        session = aiohttp.ClientSession()
+        self.session = aiohttp.ClientSession()
 
-        async with session.get(
+        async with self.session.get(
             url="https://yummyanime.tv/",
             headers={
                 "user-agent": self.user_agent,
@@ -36,7 +36,7 @@ class YummyanimetvParser(Parser):
             match = re.search(r"dle_login_hash\s*=\s*'([^']+)'", html)
             user_hash = match.group(1)
 
-        return session, {"user_hash": user_hash}
+        return self.session, {"user_hash": user_hash}
 
     async def _search(self, query: str) -> list[Movie]:
         async with self.session.post(
@@ -497,15 +497,9 @@ class YummyanimetvParser(Parser):
             browser.context.on("console", catch_socket)
             await browser.page.route("**/*.m3u8", catch_m3u8)
 
-            await browser.page.goto(episode.movie.url)
-
-            time_start = time.time()
+            await browser.page.goto(episode.movie.url, wait_until="domcontentloaded")
 
             while False in list(statuses.values()):
-                if time.time() - time_start > 10:
-                    logger.exception("Timeout waiting for stream from alohaplyer")
-                    return False
-
                 await asyncio.sleep(1)
 
             return True

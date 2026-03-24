@@ -72,7 +72,11 @@ watchDebounced(
             <img 
               v-if="movie.poster" 
               :src="movie.poster" 
-              class="w-12 h-16 object-cover rounded"
+              class="w-12 h-16 object-cover rounded border-1 flex items-center justify-center"
+            />
+            <Card 
+              v-else
+              class="bg-muted/50 w-12 h-16 rounded border-1 border-dashed flex items-center justify-center"
             />
             <span>{{ movie.title }}</span>
           </div>

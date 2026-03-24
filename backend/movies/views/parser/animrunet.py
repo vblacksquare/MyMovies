@@ -1,10 +1,11 @@
 
-import logging
 from . import Parser
-import json
+
+import logging
+import re
 import asyncio
 import aiohttp
-import bs4
+import base64
 
 from .browser import browser_ins, Browser
 from ...models import Source, Movie, MovieEpisode, Translation, Socket
@@ -14,119 +15,62 @@ logger = logging.getLogger("movies")
 
 class AnimrunetParser(Parser):
     source = Source.animrunet
-    login_hash = None
 
     async def auth(self) -> tuple[aiohttp.ClientSession, dict]:
-        session = aiohttp.ClientSession()
-
-        async with session.get(
-            url="https://animevost.org",
-            headers={
-                "user-agent": self.user_agent,
-                **self.default_get_headers
-            }
-        ) as resp:
-            self.logger.info(f"{self.__class__.__name__}:auth - {resp}")
-
-        return session, {}
+        self.session = aiohttp.ClientSession()
+        return self.session, {}
 
     async def _search(self, query: str) -> list[Movie]:
-        async with self.session.post(
-            url=f"https://animevost.org/index.php",
-            params={
-                "do": "search"
-            },
-            data={
-                "do": "search",
-                "subaction": "search",
-                "search_start": "0",
-                "full_search": "0",
-                "result_from": "1",
-                "story": query
-            },
-            headers={
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Encoding": "gzip, deflate, br, zstd",
-                "Accept-Language": "en-US,en;q=0.9",
-                "Priority": "u=0, i",
-                "Sec-Fetch-Dest": "document",
-                "Sec-Fetch-Mode": "navigate",
-                "Sec-Fetch-Site": "same-origin",
-                "user-agent": self.user_agent,
-            }
-        ) as resp:
-            self.logger.info(f"{self.__class__.__name__}:search - {resp}")
+        async def do(browser: Browser) -> list[Movie]:
+            url = f"https://anim-ru.net/search.html?q={query.replace(' ', '+')}"
 
-            html = await resp.text()
+            if browser.page.url == url:
+                await browser.page.reload(wait_until="domcontentloaded")
+            else:
+                await browser.page.goto(url, wait_until="domcontentloaded")
 
-        soup = bs4.BeautifulSoup(html, "html.parser")
-        items = soup.select("div.shortstory")
+            try:
+                await browser.page.locator("div.gsc-thumbnail-inside a.gs-title").first.wait_for(timeout=2000)
+
+            except Exception as err:
+                return
+
+            results = await browser.page.query_selector_all("div.gsc-thumbnail-inside a.gs-title")
+            for title_el in results:
+                url = await title_el.get_attribute("href")
+
+                if url is None or url.endswith("/"):
+                    continue
+
+                external_id = url.split("/")[-1]
+
+                movies.append(Movie(
+                    external_id='-'.join((self.source.value, external_id)),
+                    title=await title_el.text_content(),
+                    description=None,
+                    poster=None,
+                    url=url,
+                    source=self.source
+                ))
 
         movies = []
-        for item in items:
-            title_el = item.select_one("div.shortstoryHead a")
-            img_el = item.select_one("img")
-
-            url = title_el["href"]
-            external_id = url.split("/")[-1]
-
-            movies.append(Movie(
-                external_id='-'.join((self.source.value, external_id)),
-                title=title_el.get_text(strip=True),
-                description=None,
-                poster="https://animevost.org/" + img_el.get("src"),
-                url=url,
-                source=self.source
-            ))
-
+        await browser_ins.execute(do)
         return movies
 
     async def _fill(self, movie: Movie) -> tuple[Movie, list[MovieEpisode]]:
-        async def do(browser: Browser):
-            data = {
-                "playlist": None
-            }
-
-            def catch_socket(msg):
-                if "PLAYLIST" in msg.text:
-                    data["playlist"] = json.loads(msg.text.replace("PLAYLIST ", ""))
-
-            await browser.context.add_init_script(f"""
-            (() => {{
-                const originalParse = JSON.parse;
-
-                JSON.parse = function(str) {{
-                    const data = originalParse(str);
-                    if (data.length > 0 && data[0].title) {{
-                        console.log('PLAYLIST', JSON.stringify(data));
-                    }}
-                    return data;
-                }};
-            }})();
-            """)
-
-            browser.context.on("console", catch_socket)
+        async def do(browser: Browser) -> list[Movie]:
             if browser.page.url == movie.url:
-                await browser.page.reload()
+                await browser.page.reload(wait_until="domcontentloaded")
+
             else:
-                await browser.page.goto(movie.url)
+                await browser.page.goto(movie.url, wait_until="domcontentloaded")
 
-            title_el = await browser.page.query_selector("div.fullstory__title h1")
-            description_el = await browser.page.query_selector("div.description__block")
-            poster_el = await browser.page.query_selector("div.movie_poster img")
+            poster_el = await browser.page.query_selector("img.poster")
+            description_el = await browser.page.query_selector("div[itemprop='description']")
 
-            movie.fill_title = await title_el.text_content()
+            movie.fill_title = await poster_el.get_attribute("alt")
+            movie.fill_poster = await poster_el.get_attribute("src")
             movie.fill_description = await description_el.text_content()
-            movie.fill_poster = "https://uakinogo.ec/" + await poster_el.get_attribute("src")
-
-            temp_iframe = await browser.page.query_selector("iframe")
-            await temp_iframe.scroll_into_view_if_needed()
-
-            iframe_element = await browser.page.wait_for_selector("iframe[src*='cinemar.cc']")
-            await iframe_element.content_frame()
-
-            while data["playlist"] is None:
-                await asyncio.sleep(1)
 
             ua = await browser.page.evaluate("navigator.userAgent")
             sec_ch_ua = await browser.page.evaluate("""() => {
@@ -136,54 +80,53 @@ class AnimrunetParser(Parser):
                     .join(', ');
             }""")
 
-            for season_obj in data["playlist"]:
-                season_i = int(season_obj["id"].split("s")[-1])
+            pages = await browser.page.query_selector_all("select.sel_page option")
+            for page in pages:
+                page_value = await page.get_attribute("value")
+                if page_value in ["", " "]:
+                    continue
 
-                for episode_obj in season_obj["folder"]:
-                    episode_i = int(episode_obj["id"].split("e")[-1])
+                translation = Translation(
+                    external_id='-'.join([self.source.value, "Default"]),
+                    title="Default",
+                    meta={},
+                )
 
-                    for translation_obj in episode_obj["folder"]:
-                        translation_id = translation_obj["id"]
+                parts = page_value.split("-")
 
-                        if "img" in translation_obj["title"]:
-                            translation_obj["title"] = translation_obj["title"].split('>')[-1]
+                if parts[0] == "/page" and parts[1] == "1":
+                    page_value = '/' + '-'.join(parts[2:])
 
-                        translation = Translation(
-                            external_id='-'.join([self.source.value, str(translation_obj["voice_id"])]),
-                            title=translation_obj["title"],
-                            meta={},
-                        )
-
-                        episode = MovieEpisode(
-                            external_id='-'.join([
-                                translation.external_id,
-                                translation_id
-                            ]),
-                            movie=movie,
-                            translation=translation,
-                            season=season_i,
-                            episode=episode_i,
-                            meta={
-                                **translation_obj,
-                                "stream_headers": {
-                                    "Accept": "*/*",
-                                    "Accept-Encoding": "gzip, deflate, br, zstd",
-                                    "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
-                                    "Cache-Control": "no-cache",
-                                    "Pragma": "no-cache",
-                                    "Priority": "u=1, i",
-                                    "Sec-Ch-Ua": sec_ch_ua,
-                                    "Sec-Ch-Ua-Mobile": "?0",
-                                    "Sec-Ch-Ua-Platform": '"macOS"',
-                                    "Sec-Fetch-Dest": "empty",
-                                    "Sec-Fetch-Mode": "cors",
-                                    "Sec-Fetch-Site": "none",
-                                    "Sec-Fetch-Storage-Access": "active",
-                                    "User-Agent": ua
-                                }
-                            }
-                        )
-                        episodes.append(episode)
+                episode = MovieEpisode(
+                    external_id='-'.join([
+                        translation.external_id,
+                        page_value
+                    ]),
+                    movie=movie,
+                    translation=translation,
+                    season=1,
+                    episode=int(parts[1]),
+                    meta={
+                        "url": "https://anim-ru.net" + page_value,
+                        "stream_headers": {
+                            "Accept": "*/*",
+                            "Accept-Encoding": "gzip, deflate, br, zstd",
+                            "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+                            "Cache-Control": "no-cache",
+                            "Pragma": "no-cache",
+                            "Priority": "u=1, i",
+                            "Sec-Ch-Ua": sec_ch_ua,
+                            "Sec-Ch-Ua-Mobile": "?0",
+                            "Sec-Ch-Ua-Platform": '"macOS"',
+                            "Sec-Fetch-Dest": "empty",
+                            "Sec-Fetch-Mode": "cors",
+                            "Sec-Fetch-Site": "none",
+                            "Sec-Fetch-Storage-Access": "active",
+                            "User-Agent": ua
+                        }
+                    }
+                )
+                episodes.append(episode)
 
         episodes = []
         await browser_ins.execute(do)
@@ -191,6 +134,59 @@ class AnimrunetParser(Parser):
         return movie, episodes
 
     async def _fill_episode(self, episode: MovieEpisode) -> MovieEpisode:
-        episode.stream = "https:" + episode.meta["file"]
+        async def do(browser: Browser) -> list[Movie]:
+            statuses = {"player": None}
+
+            async def catch_m3u8(response):
+                if statuses['player']:
+                    return
+
+                if response.url.startswith("https://intrdb.com/player/"):
+                    self.logger.info(response.url)
+
+                elif response.url.startswith("https://armdb.org/player/"):
+                    self.logger.info(response.url)
+
+                else:
+                    return
+
+                html = await response.text()
+                statuses['player'] = html
+
+            browser.context.on("response", catch_m3u8)
+            logger.info(str(episode.meta))
+            if browser.page.url == episode.meta["url"]:
+                return
+            else:
+                await browser.page.goto(episode.meta["url"], wait_until="domcontentloaded")
+
+            while not statuses['player']:
+                await asyncio.sleep(0.1)
+
+            match = re.search(r'atob\("([^"]*)"\)', statuses['player'])
+            logger.info(f"match: {match}")
+            if match:
+                encoded = match.group(1)
+
+            else:
+                return
+
+            decoded = base64.b64decode(encoded).decode("utf-8")
+            parts = decoded.split(",")
+
+            best = 0
+            stream = None
+
+            for part in parts:
+                quality, stream = part.split("]")
+                quality = int(quality[1:-1])
+
+                if quality > best:
+                    best = quality
+                    stream = stream
+
+            episode.stream = stream
+
+        await browser_ins.execute(do)
 
         return episode

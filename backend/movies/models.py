@@ -14,8 +14,10 @@ class TimestampedModel(models.Model):
 
 
 class Source(models.TextChoices):
-    yummyanimetv = "yummyanime.tv"
+    #yummyanimetv = "yummyanime.tv"
+    animrunet = "anim-ru.net"
     uakinogoec = "uakinogo.ec"
+    #siteyummyanime = "site.yummyani.me"
 
 
 class SourceSession(TimestampedModel):
